@@ -9,16 +9,14 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.Socket;
 
-import org.json.simple.JSONArray;
-import org.json.simple.JSONObject;
-
-import com.eclipsesource.json.JsonArray;
 import com.eclipsesource.json.JsonObject;
 
 public class Pinger {
 
-    /** Thanks to md_5's help this works with Minecraft 1.7 now **/
-    public static int []  ping(String host, int port) throws IOException {
+    /**
+     * Thanks to md_5's help this works with Minecraft 1.7 now *
+     */
+    public static int[] ping(String host, int port) throws IOException {
         try (Socket socket = new Socket(host, port)) {
             try (DataOutputStream out = new DataOutputStream(socket.getOutputStream())) {
                 try (DataInputStream in = new DataInputStream(socket.getInputStream())) {
@@ -53,22 +51,21 @@ public class Pinger {
                                     if (id != 0x00) {
                                         throw new IllegalStateException("Wrong ping response");
                                     }
-                                    
+
                                     JsonObject jsonObject = JsonObject.readFrom(readString(inFrame));
-                                    
+
                                     JsonObject jsonPlayers = jsonObject.get("players").asObject();
-                                   
-                                    return new int[] {jsonPlayers.get("online").asInt(), jsonPlayers.get("max").asInt()};
+
+                                    return new int[]{jsonPlayers.get("online").asInt(), jsonPlayers.get("max").asInt()};
                                 }
                             }
                         }
                     }
                 }
             }
+        } catch (Exception e) {
+            return new int[]{-1, -1};
         }
-        catch (Exception e) {
-	    return new int[] {-1, -1};
-	}
     }
 
     public static void writeString(String s, DataOutput out) throws IOException {
