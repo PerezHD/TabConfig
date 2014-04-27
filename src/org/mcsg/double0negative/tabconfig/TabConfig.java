@@ -1,12 +1,8 @@
 package org.mcsg.double0negative.tabconfig;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -16,50 +12,45 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerLoginEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.PluginDescriptionFile;
+import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.mcsg.double0negative.tabapi.TabAPI;
 
 public class TabConfig extends JavaPlugin implements Listener, CommandExecutor {
 
-    String[][] tab;
-
+    private String[][] tab;
     private boolean updateAllOnPlayerLogin = false;
     private boolean updateAllOnPlayerLogout = false;
-    private int updateTimer = -1;
-
-    private HashMap<String, int[]> ping = new HashMap<String, int[]>();
+    private int updateTimerSeconds = -1;
+    private final ConcurrentHashMap<String, int[]> ping = new ConcurrentHashMap<>();
 
     @Override
     public void onEnable() {
+        log("Plugin version " + getDescription().getVersion() + " starting");
 
-        File y = this.getDataFolder();
-        File f = new File(this.getDataFolder(), "config.yml");
-        if (!f.exists()) {
-            y.mkdirs();
-            loadFile("config.yml");
-        }
+        saveDefaultConfig();
 
-        if (Bukkit.getPluginManager().getPlugin("TabAPI") == null) {
+        PluginManager pm = getServer().getPluginManager();
 
-            System.out.println(ChatColor.DARK_RED + "[TabConfig] TabAPI not detected! -  disabling");
+        if (pm.getPlugin("TabAPI") == null) {
+            log("TabAPI not detected! - disabling");
             return;
         }
 
         tab = new String[TabAPI.getVertSize()][TabAPI.getHorizSize()];
 
-        this.getCommand("tabconfig").setExecutor(this);
+        getCommand("tabconfig").setExecutor(this);
 
-        Bukkit.getServer().getPluginManager().registerEvents(this, this);
+        pm.registerEvents(this, this);
 
         load();
 
-        System.out.println("[TabConfig] Loaded!");
-
-        if (updateTimer != -1) {
+        if (updateTimerSeconds > 0) {
             getServer().getScheduler().runTaskAsynchronously(this, new Runnable() {
                 @Override
                 public void run() {
@@ -67,7 +58,7 @@ public class TabConfig extends JavaPlugin implements Listener, CommandExecutor {
                         updateAll();
 
                         try {
-                            Thread.sleep(updateTimer * 100);
+                            Thread.sleep(TimeUnit.SECONDS.toMillis(updateTimerSeconds));
                         } catch (InterruptedException ex) {
                         }
                     }
@@ -75,21 +66,30 @@ public class TabConfig extends JavaPlugin implements Listener, CommandExecutor {
             });
         }
 
+        log("Plugin version " + getDescription().getVersion() + " started");
+
+    }
+
+    @Override
+    public void onDisable() {
+        log("Plugin version " + getDescription().getVersion() + " shutting down");
+    }
+
+    private void log(String message) {
+        getLogger().info(message);
     }
 
     public void load() {
-
         this.reloadConfig();
         FileConfiguration f = this.getConfig();
 
         updateAllOnPlayerLogin = f.getBoolean("updateAllOnPlayerLogin");
         updateAllOnPlayerLogout = f.getBoolean("updateAllOnPlayerLogout");
-        updateTimer = f.getInt("updateTimer");
+        updateTimerSeconds = f.getInt("updateTimer");
 
         for (int a = 0; a < TabAPI.getVertSize(); a++) {
             int b = 0;
             for (String s : f.getStringList("tab." + (a + 1))) {
-                //System.out.println(a+" "+b+" "+s);
                 int c = 0;
                 while ((c = s.indexOf("{ping", c)) != -1) {
                     int v = s.indexOf("}", c);
@@ -110,21 +110,29 @@ public class TabConfig extends JavaPlugin implements Listener, CommandExecutor {
         }
 
         if (ping.size() > 0) {
-            Bukkit.getScheduler().runTaskTimerAsynchronously(this, new Runnable() {
+            getServer().getScheduler().runTaskAsynchronously(this, new Runnable() {
+                @Override
                 public void run() {
-                    for (String s : ping.keySet()) {
-                        String full = (s.contains(":")) ? s : s + ":25565";
-                        String[] ip = full.split(":");
+                    while (true) {
+                        for (String s : ping.keySet()) {
+                            String full = (s.contains(":")) ? s : s + ":25565";
+                            String[] ip = full.split(":");
 
-                        try {
-                            ping.put(s, Pinger.ping(ip[0], Integer.parseInt(ip[1])));
-                        } catch (NumberFormatException | IOException exception) {
-                            exception.printStackTrace();
+                            try {
+                                ping.put(s, Pinger.ping(ip[0], Integer.parseInt(ip[1])));
+                            } catch (NumberFormatException | IOException exception) {
+                                exception.printStackTrace();
+                            }
                         }
 
+                        //Ping the servers every 5 seconds.
+                        try {
+                            Thread.sleep(5000);
+                        } catch (InterruptedException ex) {
+                        }
                     }
                 }
-            }, 100, 100);
+            });
         }
 
         updateAll();
@@ -157,7 +165,6 @@ public class TabConfig extends JavaPlugin implements Listener, CommandExecutor {
 
     public String replaceVars(String s, Player p) {
         String r = s;
-
         r = r.replace("{online}", Bukkit.getOnlinePlayers().length + "");
         r = r.replace("{max}", Bukkit.getMaxPlayers() + "");
         r = r.replace("{player}", p.getName());
@@ -179,50 +186,41 @@ public class TabConfig extends JavaPlugin implements Listener, CommandExecutor {
             if (spl[2].equalsIgnoreCase("max")) {
                 sy = ping.get(spl[1])[1] + "";
             }
-            //System.out.println(c+"  "+v + "   "+r.length() + "  "+r);
             r = r.substring(0, c)
                     + sy
                     + r.substring(v + 1);
 
             c = c + sy.length();
-
         }
-
         return r;
-
     }
 
     public void updateAll() {
-        for (Player p : Bukkit.getOnlinePlayers()) {
+        for (Player p : getServer().getOnlinePlayers()) {
             update(p);
         }
     }
 
     public void update(Player p) {
-
         for (int a = 0; a < tab.length; a++) {
             for (int b = 0; b < tab[a].length; b++) {
-
-                //System.out.println(a + " "+b);
                 if (tab[a][b] != null) {
                     String y = replaceVars(tab[a][b], p);
-
                     if (y.equalsIgnoreCase("{fillplayers}")) {
                         fillPlayers(p, a, b);
                         break;
                     }
-
                     TabAPI.setTabString(this, p, a, b, y + ((y.length() < 15) ? TabAPI.nextNull() : ""));
                 }
             }
         }
-
-        TabAPI.updatePlayer(p);
-
+        if (p != null && p.isOnline()) {
+            TabAPI.updatePlayer(p);
+        }
     }
 
     private void fillPlayers(Player p, int a, int b) {
-        for (Player pl : Bukkit.getOnlinePlayers()) {
+        for (Player pl : getServer().getOnlinePlayers()) {
             TabAPI.setTabString(this, p, a, b, pl.getName() + ((pl.getName().length() < 14) ? TabAPI.nextNull() : ""));
 
             b++;
@@ -233,16 +231,15 @@ public class TabConfig extends JavaPlugin implements Listener, CommandExecutor {
             if (a > TabAPI.getVertSize() - 1) {
                 return;
             }
-
         }
-
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void playerLogin(PlayerLoginEvent e) {
         final Player p = e.getPlayer();
         TabAPI.setPriority(this, p, 0);
-        Bukkit.getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
+        getServer().getScheduler().runTaskAsynchronously(this, new Runnable() {
+            @Override
             public void run() {
                 if (updateAllOnPlayerLogin) {
                     updateAll();
@@ -250,43 +247,19 @@ public class TabConfig extends JavaPlugin implements Listener, CommandExecutor {
                     update(p.getPlayer());
                 }
             }
-        }, 2);
+        });
 
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void playerLogout(PlayerQuitEvent e) {
-        if (updateAllOnPlayerLogout) {
-            updateAll();
-        }
-
-    }
-
-    public void loadFile(String file) {
-        File t = new File(this.getDataFolder(), file);
-        System.out.println("Writing new file: " + t.getAbsolutePath());
-
-        try {
-            t.createNewFile();
-            FileWriter out = new FileWriter(t);
-            System.out.println(file);
-            InputStream is = getClass().getResourceAsStream(file);
-            InputStreamReader isr = new InputStreamReader(is);
-            BufferedReader br = new BufferedReader(isr);
-            String line;
-            while ((line = br.readLine()) != null) {
-                out.write(line + "\n");
-                System.out.println(line);
+        getServer().getScheduler().runTaskAsynchronously(this, new Runnable() {
+            @Override
+            public void run() {
+                if (updateAllOnPlayerLogout) {
+                    updateAll();
+                }
             }
-            out.flush();
-            is.close();
-            isr.close();
-            br.close();
-            out.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
+        });
     }
-
 }

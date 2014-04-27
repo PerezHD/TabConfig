@@ -13,15 +13,13 @@
 # logins and logouts this can cause high data usage and
 # cpu load.
 
-updateAllOnPlayerLogin: true
-updateAllOnPlayerLogout: true
+updateAllOnPlayerLogin: false
+updateAllOnPlayerLogout: false
 
-# Change the update time in ticks. Higher update times 
+# Change the update time in seconds. Higher update times 
 # will result in more data usage. Setting this to -1
 # will disable continuous updates. 
-
-updateTimer: 100
-
+updateTimer: 5
 
 #Set the global tab
 #format
@@ -56,31 +54,38 @@ updateTimer: 100
 #
 #
 #
-
-
 tab:
   1:
-  - '&4============'
-  - '&6============'
-  - '&4============'
+  - '&4************'
+  - '&4************'
+  - '&4************'
   2:
-  - 'Double0negative'
-  - '&4TabConfig'
-  - 'mc-sg.org'
+  - '&eWelcome To'
+  - '&2ArkhamNetwork'
+  - '&b{player}'
   3:
-  - '&4============'
-  - '&6============'
-  - '&4============'
+  - '&4************'
+  - '&4************'
+  - '&4************'
   4:
+  - ''
+  - ''
+  - ''
   5:
-  - 'play.mc-sg.org'
-  - '{ping!play.mc-sg.org!online}/{ping!play.mc-sg.org!max}'
+  - '&6Players:'
+  - '&e{ping!162.252.85.112:50000!online}&f/&e{ping!162.252.85.112:50000!max}'
+  - ''
   6:
-  - '&6Online: '
-  - '{online}/{max}'
+  - '&aVersions:'
+  - '&41.7.2-1.7.9'
   7:
+  - ''
+  - ''
+  - ''
   8:
+  - ''
+  - ''
+  - ''
   9:
-  - '&4Players'
+  - '&3Players'
   - '{fillplayers}'
-  

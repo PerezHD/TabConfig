@@ -14,7 +14,13 @@ import com.eclipsesource.json.JsonObject;
 public class Pinger {
 
     /**
-     * Thanks to md_5's help this works with Minecraft 1.7 now *
+     * Thanks to md_5's help this works with Minecraft 1.7 now
+     *
+     *
+     * @param host
+     * @param port
+     * @return
+     * @throws java.io.IOException
      */
     public static int[] ping(String host, int port) throws IOException {
         try (Socket socket = new Socket(host, port)) {
@@ -69,7 +75,6 @@ public class Pinger {
     }
 
     public static void writeString(String s, DataOutput out) throws IOException {
-        // TODO: Check len - use Guava?
         byte[] b = s.getBytes("UTF-8");
         writeVarInt(b.length, out);
         out.write(b);
