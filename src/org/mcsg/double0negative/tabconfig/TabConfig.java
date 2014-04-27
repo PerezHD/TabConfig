@@ -14,6 +14,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerLoginEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.PluginDescriptionFile;
@@ -28,7 +29,8 @@ public class TabConfig extends JavaPlugin implements Listener, CommandExecutor {
     private boolean updateAllOnPlayerLogout = false;
     private int updateTimerSeconds = -1;
     private final ConcurrentHashMap<String, int[]> ping = new ConcurrentHashMap<>();
-
+    private int playerCount = 0;
+    
     @Override
     public void onEnable() {
         log("Plugin version " + getDescription().getVersion() + " starting");
@@ -55,6 +57,7 @@ public class TabConfig extends JavaPlugin implements Listener, CommandExecutor {
                 @Override
                 public void run() {
                     while (true) {
+                        playerCount = getServer().getOfflinePlayers().length;
                         updateAll();
 
                         try {
@@ -165,7 +168,7 @@ public class TabConfig extends JavaPlugin implements Listener, CommandExecutor {
 
     public String replaceVars(String s, Player p) {
         String r = s;
-        r = r.replace("{online}", Bukkit.getOnlinePlayers().length + "");
+        r = r.replace("{online}", playerCount + "");
         r = r.replace("{max}", Bukkit.getMaxPlayers() + "");
         r = r.replace("{player}", p.getName());
         r = r.replace("{displayname}", p.getDisplayName());
@@ -235,12 +238,13 @@ public class TabConfig extends JavaPlugin implements Listener, CommandExecutor {
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
-    public void playerLogin(PlayerLoginEvent e) {
+    public void playerLogin(PlayerJoinEvent e) {
         final Player p = e.getPlayer();
         TabAPI.setPriority(this, p, 0);
         getServer().getScheduler().runTaskAsynchronously(this, new Runnable() {
             @Override
             public void run() {
+                playerCount = getServer().getOfflinePlayers().length;
                 if (updateAllOnPlayerLogin) {
                     updateAll();
                 } else {
@@ -257,6 +261,7 @@ public class TabConfig extends JavaPlugin implements Listener, CommandExecutor {
             @Override
             public void run() {
                 if (updateAllOnPlayerLogout) {
+                    playerCount = getServer().getOfflinePlayers().length;
                     updateAll();
                 }
             }
