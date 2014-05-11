@@ -30,7 +30,7 @@ public class TabConfig extends JavaPlugin implements Listener, CommandExecutor {
     private int updateTimerSeconds = -1;
     private final ConcurrentHashMap<String, int[]> ping = new ConcurrentHashMap<>();
     private int playerCount = 0;
-    
+
     @Override
     public void onEnable() {
         log("Plugin version " + getDescription().getVersion() + " starting");
@@ -57,7 +57,7 @@ public class TabConfig extends JavaPlugin implements Listener, CommandExecutor {
                 @Override
                 public void run() {
                     while (true) {
-                        playerCount = getServer().getOfflinePlayers().length;
+                        playerCount = getServer().getOnlinePlayers().length;
                         updateAll();
 
                         try {
@@ -205,6 +205,10 @@ public class TabConfig extends JavaPlugin implements Listener, CommandExecutor {
     }
 
     public void update(Player p) {
+        if (p == null && !p.isOnline()) {
+            return;
+        }
+
         for (int a = 0; a < tab.length; a++) {
             for (int b = 0; b < tab[a].length; b++) {
                 if (tab[a][b] != null) {
@@ -224,7 +228,7 @@ public class TabConfig extends JavaPlugin implements Listener, CommandExecutor {
 
     private void fillPlayers(Player p, int a, int b) {
         for (Player pl : getServer().getOnlinePlayers()) {
-            TabAPI.setTabString(this, p, a, b, pl.getName() + ((pl.getName().length() < 14) ? TabAPI.nextNull() : ""));
+            TabAPI.setTabString(this, p, a, b, buildSpaces(pl.getName(), 16 - pl.getName().length()));
 
             b++;
             if (b == 3) {
@@ -237,6 +241,22 @@ public class TabConfig extends JavaPlugin implements Listener, CommandExecutor {
         }
     }
 
+    private String buildSpaces(String string, int amount) {
+        if (string.length() >= 16) {
+            string = string.substring(0, 15);
+            amount = 1;
+        }
+        
+        StringBuilder builder = new StringBuilder();
+        builder.append(string);
+        
+        for (int i = 0; i <= amount; i++) {
+            builder.append(" ");
+        }
+        
+        return builder.toString();
+    }
+
     @EventHandler(priority = EventPriority.HIGHEST)
     public void playerLogin(PlayerJoinEvent e) {
         final Player p = e.getPlayer();
@@ -244,7 +264,7 @@ public class TabConfig extends JavaPlugin implements Listener, CommandExecutor {
         getServer().getScheduler().runTaskAsynchronously(this, new Runnable() {
             @Override
             public void run() {
-                playerCount = getServer().getOfflinePlayers().length;
+                playerCount = getServer().getOnlinePlayers().length;
                 if (updateAllOnPlayerLogin) {
                     updateAll();
                 } else {
@@ -261,7 +281,7 @@ public class TabConfig extends JavaPlugin implements Listener, CommandExecutor {
             @Override
             public void run() {
                 if (updateAllOnPlayerLogout) {
-                    playerCount = getServer().getOfflinePlayers().length;
+                    playerCount = getServer().getOnlinePlayers().length;
                     updateAll();
                 }
             }
