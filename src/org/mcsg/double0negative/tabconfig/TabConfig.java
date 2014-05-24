@@ -15,7 +15,6 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
-import org.bukkit.event.player.PlayerLoginEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.PluginDescriptionFile;
 import org.bukkit.plugin.PluginManager;
@@ -57,12 +56,16 @@ public class TabConfig extends JavaPlugin implements Listener, CommandExecutor {
                 @Override
                 public void run() {
                     while (true) {
-                        playerCount = getServer().getOnlinePlayers().length;
-                        updateAll();
-
                         try {
                             Thread.sleep(TimeUnit.SECONDS.toMillis(updateTimerSeconds));
                         } catch (InterruptedException ex) {
+                        }
+
+                        try {
+                            playerCount = getServer().getOnlinePlayers().length;
+                            updateAll();
+                        } catch (Exception ex) {
+                            continue;
                         }
                     }
                 }
@@ -70,7 +73,6 @@ public class TabConfig extends JavaPlugin implements Listener, CommandExecutor {
         }
 
         log("Plugin version " + getDescription().getVersion() + " started");
-
     }
 
     @Override
@@ -199,30 +201,38 @@ public class TabConfig extends JavaPlugin implements Listener, CommandExecutor {
     }
 
     public void updateAll() {
-        for (Player p : getServer().getOnlinePlayers()) {
-            update(p);
+        try {
+            for (Player p : getServer().getOnlinePlayers()) {
+                update(p);
+            }
+        } catch (Exception ex) {
+            return;
         }
     }
 
     public void update(Player p) {
-        if (p == null && !p.isOnline()) {
-            return;
-        }
+        try {
+            if (p == null && !p.isOnline()) {
+                return;
+            }
 
-        for (int a = 0; a < tab.length; a++) {
-            for (int b = 0; b < tab[a].length; b++) {
-                if (tab[a][b] != null) {
-                    String y = replaceVars(tab[a][b], p);
-                    if (y.equalsIgnoreCase("{fillplayers}")) {
-                        fillPlayers(p, a, b);
-                        break;
+            for (int a = 0; a < tab.length; a++) {
+                for (int b = 0; b < tab[a].length; b++) {
+                    if (tab[a][b] != null) {
+                        String y = replaceVars(tab[a][b], p);
+                        if (y.equalsIgnoreCase("{fillplayers}")) {
+                            fillPlayers(p, a, b);
+                            break;
+                        }
+                        TabAPI.setTabString(this, p, a, b, y + ((y.length() < 15) ? TabAPI.nextNull() : ""));
                     }
-                    TabAPI.setTabString(this, p, a, b, y + ((y.length() < 15) ? TabAPI.nextNull() : ""));
                 }
             }
-        }
-        if (p != null && p.isOnline()) {
-            TabAPI.updatePlayer(p);
+            if (p != null && p.isOnline()) {
+                TabAPI.updatePlayer(p);
+            }
+        } catch (Exception ex) {
+            return;
         }
     }
 
@@ -246,14 +256,14 @@ public class TabConfig extends JavaPlugin implements Listener, CommandExecutor {
             string = string.substring(0, 15);
             amount = 1;
         }
-        
+
         StringBuilder builder = new StringBuilder();
         builder.append(string);
-        
+
         for (int i = 0; i <= amount; i++) {
             builder.append(" ");
         }
-        
+
         return builder.toString();
     }
 
