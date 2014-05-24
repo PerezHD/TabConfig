@@ -15,7 +15,6 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
-import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.PluginDescriptionFile;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -24,8 +23,6 @@ import org.mcsg.double0negative.tabapi.TabAPI;
 public class TabConfig extends JavaPlugin implements Listener, CommandExecutor {
 
     private String[][] tab;
-    private boolean updateAllOnPlayerLogin = false;
-    private boolean updateAllOnPlayerLogout = false;
     private int updateTimerSeconds = -1;
     private final ConcurrentHashMap<String, int[]> ping = new ConcurrentHashMap<>();
     private int playerCount = 0;
@@ -88,8 +85,6 @@ public class TabConfig extends JavaPlugin implements Listener, CommandExecutor {
         this.reloadConfig();
         FileConfiguration f = this.getConfig();
 
-        updateAllOnPlayerLogin = f.getBoolean("updateAllOnPlayerLogin");
-        updateAllOnPlayerLogout = f.getBoolean("updateAllOnPlayerLogout");
         updateTimerSeconds = f.getInt("updateTimer");
 
         for (int a = 0; a < TabAPI.getVertSize(); a++) {
@@ -212,7 +207,7 @@ public class TabConfig extends JavaPlugin implements Listener, CommandExecutor {
 
     public void update(Player p) {
         try {
-            if (p == null && !p.isOnline()) {
+            if (p == null || !p.isOnline()) {
                 return;
             }
 
@@ -228,7 +223,7 @@ public class TabConfig extends JavaPlugin implements Listener, CommandExecutor {
                     }
                 }
             }
-            if (p != null && p.isOnline()) {
+            if (p.isOnline()) {
                 TabAPI.updatePlayer(p);
             }
         } catch (Exception ex) {
@@ -274,25 +269,11 @@ public class TabConfig extends JavaPlugin implements Listener, CommandExecutor {
         getServer().getScheduler().runTaskAsynchronously(this, new Runnable() {
             @Override
             public void run() {
-                playerCount = getServer().getOnlinePlayers().length;
-                if (updateAllOnPlayerLogin) {
-                    updateAll();
-                } else {
-                    update(p.getPlayer());
-                }
-            }
-        });
-
-    }
-
-    @EventHandler(priority = EventPriority.HIGHEST)
-    public void playerLogout(PlayerQuitEvent e) {
-        getServer().getScheduler().runTaskAsynchronously(this, new Runnable() {
-            @Override
-            public void run() {
-                if (updateAllOnPlayerLogout) {
+                try {
                     playerCount = getServer().getOnlinePlayers().length;
-                    updateAll();
+                    update(p.getPlayer());
+                } catch (Exception ex) {
+                    return;
                 }
             }
         });
