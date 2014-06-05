@@ -2,7 +2,6 @@ package org.mcsg.double0negative.tabconfig;
 
 import java.io.IOException;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
 
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -27,8 +26,12 @@ public class TabConfig extends JavaPlugin implements Listener, CommandExecutor {
     private final ConcurrentHashMap<String, int[]> ping = new ConcurrentHashMap<>();
     private int playerCount = 0;
 
+    private TabConfig plugin;
+
     @Override
     public void onEnable() {
+        plugin = this;
+
         log("Plugin version " + getDescription().getVersion() + " starting");
 
         saveDefaultConfig();
@@ -49,24 +52,17 @@ public class TabConfig extends JavaPlugin implements Listener, CommandExecutor {
         load();
 
         if (updateTimerSeconds > 0) {
-            getServer().getScheduler().runTaskAsynchronously(this, new Runnable() {
+            getServer().getScheduler().runTaskTimerAsynchronously(this, new Runnable() {
                 @Override
-                public void run() {
-                    while (true) {
-                        try {
-                            Thread.sleep(TimeUnit.SECONDS.toMillis(updateTimerSeconds));
-                        } catch (InterruptedException ex) {
-                        }
-
-                        try {
-                            playerCount = getServer().getOnlinePlayers().length;
-                            updateAll();
-                        } catch (Exception ex) {
-                            continue;
-                        }
+                public synchronized void run() {
+                    try {
+                        playerCount = getServer().getOnlinePlayers().length;
+                        updateAll();
+                    } catch (Exception ex) {
+                        ex.printStackTrace();
                     }
                 }
-            });
+            }, updateTimerSeconds * 20, updateTimerSeconds * 20);
         }
 
         log("Plugin version " + getDescription().getVersion() + " started");
@@ -110,29 +106,22 @@ public class TabConfig extends JavaPlugin implements Listener, CommandExecutor {
         }
 
         if (ping.size() > 0) {
-            getServer().getScheduler().runTaskAsynchronously(this, new Runnable() {
+            getServer().getScheduler().runTaskTimerAsynchronously(this, new Runnable() {
                 @Override
-                public void run() {
-                    while (true) {
-                        for (String s : ping.keySet()) {
-                            String full = (s.contains(":")) ? s : s + ":25565";
-                            String[] ip = full.split(":");
+                public synchronized void run() {
+                    ping.keySet().stream().forEach((s) -> {
+                        String full = (s.contains(":")) ? s : s + ":25565";
+                        String[] ip = full.split(":");
 
-                            try {
-                                ping.put(s, Pinger.ping(ip[0], Integer.parseInt(ip[1])));
-                            } catch (NumberFormatException | IOException exception) {
-                                exception.printStackTrace();
-                            }
-                        }
-
-                        //Ping the servers every 5 seconds.
                         try {
-                            Thread.sleep(5000);
-                        } catch (InterruptedException ex) {
+                            ping.put(s, Pinger.ping(ip[0], Integer.parseInt(ip[1])));
+                        } catch (NumberFormatException | IOException exception) {
+                            exception.printStackTrace();
                         }
-                    }
+                    });
                 }
-            });
+
+            }, 20L, 20L);
         }
 
         updateAll();
@@ -164,6 +153,10 @@ public class TabConfig extends JavaPlugin implements Listener, CommandExecutor {
     }
 
     public String replaceVars(String s, Player p) {
+        if (p == null || !p.isOnline()) {
+            return "";
+        }
+
         String r = s;
         r = r.replace("{online}", playerCount + "");
         r = r.replace("{max}", Bukkit.getMaxPlayers() + "");
@@ -196,11 +189,14 @@ public class TabConfig extends JavaPlugin implements Listener, CommandExecutor {
     }
 
     public void updateAll() {
+        final Player[] onlinePlayers = getServer().getOnlinePlayers();
+
         try {
-            for (Player p : getServer().getOnlinePlayers()) {
+            for (Player p : onlinePlayers) {
                 update(p);
             }
         } catch (Exception ex) {
+            ex.printStackTrace();
             return;
         }
     }
@@ -227,12 +223,19 @@ public class TabConfig extends JavaPlugin implements Listener, CommandExecutor {
                 TabAPI.updatePlayer(p);
             }
         } catch (Exception ex) {
+            ex.printStackTrace();
             return;
         }
     }
 
     private void fillPlayers(Player p, int a, int b) {
-        for (Player pl : getServer().getOnlinePlayers()) {
+        final Player[] onlinePlayers = getServer().getOnlinePlayers();
+
+        for (Player pl : onlinePlayers) {
+            if (pl == null || !pl.isOnline()) {
+                continue;
+            }
+
             TabAPI.setTabString(this, p, a, b, buildSpaces(pl.getName(), 16 - pl.getName().length()));
 
             b++;
@@ -262,17 +265,18 @@ public class TabConfig extends JavaPlugin implements Listener, CommandExecutor {
         return builder.toString();
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST)
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void playerLogin(PlayerJoinEvent e) {
         final Player p = e.getPlayer();
-        TabAPI.setPriority(this, p, 0);
         getServer().getScheduler().runTaskAsynchronously(this, new Runnable() {
             @Override
             public void run() {
                 try {
+                    TabAPI.setPriority(plugin, p, 0);
                     playerCount = getServer().getOnlinePlayers().length;
                     update(p.getPlayer());
                 } catch (Exception ex) {
+                    ex.printStackTrace();
                     return;
                 }
             }
